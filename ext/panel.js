@@ -75,7 +75,8 @@ function render(b){
     <div><b>${s.steps}</b>steps</div>
     <div><b class="${sev("HIGH") ? "HIGH" : ""}">${sev("HIGH")}</b>high</div>
     <div><b>${sev("MEDIUM")}</b>medium</div><div><b>${sev("LOW")}</b>low</div>
-    <div><b>${s.live ?? 0}</b>live</div><div><b>${s.edges}</b>edges</div>`;
+    <div><b>${s.live ?? 0}</b>live</div><div><b>${s.edges}</b>edges</div>
+    ${s.notRead ? `<div><b style="color:var(--hi)">${s.notRead}</b>not read</div>` : ""}`;
 
   if (b.changedSinceLastAudit){
     const d = b.changedSinceLastAudit;

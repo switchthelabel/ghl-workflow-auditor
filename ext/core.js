@@ -271,6 +271,13 @@ function detect(models, fieldKeys, accountTags, rules){
           `Nothing below covers it, so open it by hand. Everything else in this report is complete`);
       continue;
     }
+    if (m.fetchError){
+      add("HIGH", wf, "could not be read",
+          `this workflow's data could not be fetched and it was SKIPPED: ${m.fetchError}. ` +
+          `Its steps, triggers and counts below are EMPTY because they were never read, not because they are empty. ` +
+          `Open it by hand. Everything else in this report is complete`);
+      continue;
+    }
     for (const tr of m.triggers){
       const conds = arr(tr.conditions).filter(Boolean);
       const fields = conds.map(c => String(c.field||""));
@@ -498,7 +505,7 @@ function detect(models, fieldKeys, accountTags, rules){
     .map(c => [c.field, c.operator, JSON.stringify(c.value)]).sort()]);
   const byTrigger = {};
   for (const m of models){
-    if (m.parseError || m.status !== "published") continue;
+    if (m.parseError || m.fetchError || m.status !== "published") continue;
     for (const tr of m.triggers) (byTrigger[sig(tr)] ||= new Set()).add(m.name);
   }
   for (const [s, owners] of Object.entries(byTrigger)){
@@ -648,6 +655,10 @@ function buildBundle(loc, models, findings, edges, rawFields, rawTags){
       "Its steps, writes and reads are empty because nothing was parsed, NOT because it is",
       "empty. Never conclude anything about that workflow from this file: open it in the UI.",
       "",
+      "If a workflow carries a `fetchError`, its data could not be FETCHED (401/429/network).",
+      "Its steps, writes and reads are empty because nothing was READ, not because it is empty.",
+      "Never conclude anything about that workflow from this file either: open it in the UI.",
+      "",
       "NOT in here: Conversations AI agents (no API exposes them, internal or public) and whether",
       "the copy is right for the business. Both still need a human.",
     ].join("\n"),
@@ -656,7 +667,8 @@ function buildBundle(loc, models, findings, edges, rawFields, rawTags){
     summary: { workflows: models.length, published: models.filter(m => m.status === "published").length,
                steps: models.reduce((a,m) => a + m.steps.length, 0),
                findings: findings.length, edges: edges.length,
-               live: findings.filter(f => f.live).length },
+               live: findings.filter(f => f.live).length,
+               notRead: models.filter(m => m.fetchError).length },
     findings: findings.map(f => ({ severity: f.sev, workflow: f.wf, workflowId: f.workflowId || null,
                                    stepId: f.stepId || null, rule: f.rule, detail: f.msg, occurrences: f.n,
                                    live: !!f.live, contactsInWorkflow: f.contacts || 0,
@@ -664,7 +676,7 @@ function buildBundle(loc, models, findings, edges, rawFields, rawTags){
     graph: edges,
     // Where the chain leaves the workflows: tags a trigger waits for that no
     // workflow writes. Something outside does it, and this file cannot see it.
-    boundaries: boundaries(models.filter(m => !m.parseError)),
+    boundaries: boundaries(models.filter(m => !m.parseError && !m.fetchError)),
     account: { customFields: rawFields, tags: rawTags,
                pipelines: [...new Set(models.flatMap(m => [...(m.pipelines || [])]))],
                stages: [...new Set(models.flatMap(m => [...(m.stages || [])]))] },
@@ -674,6 +686,7 @@ function buildBundle(loc, models, findings, edges, rawFields, rawTags){
       // Present only when the workflow could not be parsed. Everything below is
       // EMPTY in that case, which means "not read", never "nothing there".
       ...(m.parseError ? { parseError: m.parseError } : {}),
+      ...(m.fetchError ? { fetchError: m.fetchError } : {}),
       settings: m.settings,
       triggers: m.triggers,
       steps: m.steps.map((s, i) => ({ position: i + 1, id: s.id, name: s.name || null,
@@ -726,8 +739,11 @@ function toMarkdown(loc, models, findings, edges, diff){
   const steps = models.reduce((a,m) => a + m.steps.length, 0);
   const today = new Date().toISOString().slice(0,10);
   const live = findings.filter(f => f.live).length;
+  const notRead = models.filter(m => m.fetchError).length;
   return [`# Workflow audit - ${loc}`, "", `generated ${today} by the GHL Audit extension`, "",
-    `**${models.length} workflows** (${pub} published) - ${steps} steps - **${findings.length} findings** (${live} in published workflows) - ${edges.length} edges`, "",
+    `**${models.length} workflows** (${pub} published) - ${steps} steps - **${findings.length} findings** (${live} in published workflows) - ${edges.length} edges`,
+    ...(notRead ? ["", `**${notRead} of ${models.length} workflows could not be read** — their steps and triggers are unknown, so nothing about them is reported here. Re-run with a live session.`] : []),
+    "",
     ...(diff ? ["## Changed since the last audit", "",
       ...diff.changed.map(c => `- **${esc(c.name)}** - ${c.how}`),
       ...diff.added.map(c => `- **${esc(c.name)}** - NEW (${c.status})`),

@@ -269,3 +269,27 @@ assert.ok(md.includes(`**${findings.length} findings**`));
 
 console.log(`ok  -  ${findings.length} findings, ${edges.length} edges on the fixture`);
 
+// --- a fetch that failed must not masquerade as an empty workflow -----------
+// audit.js marks a workflow `fetchError` when its API calls failed, and that
+// must surface exactly like a parse error: a HIGH finding, no false "empty
+// workflow"/"no trigger" noise, and a summary that counts how many were missed.
+{
+  const bad = extract({ id:"F", name:"Not fetched", status:"published" }, null, [], [], {});
+  bad.fetchError = "HTTP 429 on trigger";
+
+  const good = extract({ id:"G2", name:"Fine WF", status:"published" },
+    { workflowData:{ templates:[{ id:"g1", type:"add_contact_tag", next:null, attributes:{ tags:["ok"] } }] } },
+    [], [], {});
+
+  const fs = detect([bad, good], new Set(), new Set());
+  assert.strictEqual(sevOf(fs, "could not be read"), "HIGH", "an unread workflow must shout, not look empty");
+  assert.ok(!fs.some(f => f.wf === "Not fetched" && f.rule !== "could not be read"),
+    "an unread workflow must not generate 'empty workflow' or 'no trigger' noise on top");
+
+  const b = buildBundle("loc", [bad, good], fs, [], [], []);
+  assert.strictEqual(b.summary.notRead, 1, "the summary must count the unread workflow");
+  assert.strictEqual(b.workflows[0].fetchError, "HTTP 429 on trigger", "the bundle must carry the reason");
+  assert.ok(!("fetchError" in b.workflows[1]), "a workflow that fetched fine must not carry the flag");
+  assert.ok(toMarkdown("loc", [bad, good], fs, []).includes("could not be read"),
+    "the report must state how many workflows were not read");
+}

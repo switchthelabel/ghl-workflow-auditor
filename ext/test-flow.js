@@ -11,13 +11,14 @@ const jwt = mins => `eyJhbGciOiJIUzI1NiJ9.${b64u({ exp: Math.floor(Date.now()/10
 
 function harness({ token = jwt(60), tabUrl = `https://app.gohighlevel.com/v2/location/${LOC}/automation`,
                    workflows = [{ id:"w1", name:"WF 1", status:"published", version:2 }],
-                   failList = false, poisonId = null } = {}){
+                   failList = false, poisonId = null, failFetch = null, fastTimeout = false } = {}){
   const store = {}, local = {};
   const listeners = [];
   const calls = [];
 
   const respond = url => {
     calls.push(url);
+    if (failFetch && url.includes(failFetch.id)) throw new Error("HTTP " + failFetch.status);
     if (url.includes("/workflows/?locationId=")) {
       if (failList) throw new Error("HTTP 404");
       return { workflows };
@@ -39,7 +40,8 @@ function harness({ token = jwt(60), tabUrl = `https://app.gohighlevel.com/v2/loc
   const ctx = {
     console, JSON, Date, Math, Promise, Set, Map, Object, Array, String, Number, Boolean,
     RegExp, Error, URL, Symbol, isNaN, parseInt,
-    setInterval: () => 1, clearInterval: () => {}, setTimeout, queueMicrotask,
+    setInterval: () => 1, clearInterval: () => {},
+    setTimeout: fastTimeout ? (fn => fn()) : setTimeout, queueMicrotask,
     atob: s => Buffer.from(s, "base64").toString("binary"),
     importScripts: () => {},                       // the files are loaded by hand below
     fetch: async url => {
@@ -224,5 +226,55 @@ const settle = async (store, ms = 4000) => {
     assert.ok(d.changed.some(c => c.how.includes("draft -> published")));
   }
 
-  console.log("ok  -  service worker flow: 9 scenarios");
+  // --- a fetch that 401s must mark the workflow unread, not empty -----------
+  // A token dying mid-run used to make a workflow read as "0 steps / 0 triggers"
+  // and surface as a false "empty workflow". It must instead be counted, marked
+  // unread, and reported as a HIGH finding, with the summary saying how many
+  // workflows were not read.
+  {
+    const h = harness({
+      workflows: ["w1","w2","w3"].map(id => ({ id, name:`WF ${id}`, status:"published" })),
+      failFetch: { id: "w2", status: 401 },
+    });
+    h.send({ type: "start", tabId: 7 });
+    const prog = await settle(h.store);
+    assert.strictEqual(prog.status, "done", "a 401 on one workflow must not fail the whole run");
+
+    const b = h.store.result.bundle;
+    assert.strictEqual(b.summary.notRead, 1, "the summary must state how many workflows were not read");
+    const unread = b.workflows.filter(w => w.fetchError);
+    assert.strictEqual(unread.length, 1, "exactly the 401'd workflow must be marked unread");
+    assert.strictEqual(unread[0].id, "w2");
+    assert.match(unread[0].fetchError, /401/, "the reason (401) must survive");
+
+    const shout = b.findings.find(f => f.rule === "could not be read");
+    assert.ok(shout, "an unread workflow must appear as a finding, not only in the JSON");
+    assert.strictEqual(shout.severity, "HIGH", "silently reading it as empty is exactly what we refuse to do");
+    assert.ok(!b.findings.some(f => f.workflowId === "w2" && f.rule !== "could not be read"),
+      "the unread workflow must only carry the 'could not be read' finding");
+    assert.strictEqual(b.workflows.filter(w => w.steps.length).length, 2, "the healthy two must still be parsed");
+    assert.ok(h.store.result.report.includes("could not be read"),
+      "the report must state how many workflows were not read");
+  }
+
+  // --- a 429 is retried with backoff before the workflow is marked unread ----
+  {
+    const h = harness({
+      workflows: [{ id:"w1", name:"WF 1", status:"published" }],
+      failFetch: { id: "w1", status: 429 },
+      fastTimeout: true,
+    });
+    h.send({ type: "start", tabId: 7 });
+    const prog = await settle(h.store);
+    assert.strictEqual(prog.status, "done");
+
+    const b = h.store.result.bundle;
+    assert.strictEqual(b.summary.notRead, 1, "a persistent 429 must still mark the workflow unread");
+    assert.ok(b.findings.find(f => f.rule === "could not be read"), "a 429'd workflow must surface");
+    // One initial attempt plus three backoff retries, per fetch.
+    const detailCalls = h.calls.filter(u => u.includes(`/workflow/${LOC}/w1?`));
+    assert.strictEqual(detailCalls.length, 4, "a 429 must be retried with backoff, not given up on at once");
+  }
+
+  console.log("ok  -  service worker flow: 11 scenarios");
 })().catch(e => { console.error("FAIL  " + e.message); process.exit(1); });
