@@ -159,8 +159,8 @@ function extract(entry, detail, triggers, counts, fieldById, funnelIdPattern){
                        || String(ref).replace("contact.","");
   for (const s of steps){
     const a = s.attributes || {};
-    if (s.type === "add_contact_tag") arr(a.tags).forEach(t => t && m.tagsAdded.add(t));
-    else if (s.type === "remove_contact_tag") arr(a.tags).forEach(t => t && m.tagsRemoved.add(t));
+    if (s.type === "add_contact_tag") arr(a.tags).forEach(t => typeof t === "string" && t && m.tagsAdded.add(t));
+    else if (s.type === "remove_contact_tag") arr(a.tags).forEach(t => typeof t === "string" && t && m.tagsRemoved.add(t));
     else if (s.type === "update_contact_field") arr(a.fields).forEach(f => f && m.fieldsWritten.add(fname(f.field)));
     else if (s.type === "remove_from_workflow") arr(a.workflow_id).forEach(w => w && m.wfRemoved.add(w));
     else if (s.type === "add_to_workflow") arr(a.workflow_id).forEach(w => w && m.wfAdded.add(w));
@@ -263,6 +263,7 @@ function detect(models, fieldKeys, accountTags, rules){
   const knowTags = accountTags && accountTags.size > 0;
 
   for (const m of models){
+    try {
     const wf = m.name;
     ctxWf = m.id; ctxStep = null;
     if (m.parseError){
@@ -475,6 +476,11 @@ function detect(models, fieldKeys, accountTags, rules){
       add("MEDIUM", wf, "empty workflow", "not a single step: a shell someone left half-built");
     if (!m.triggers.length && m.status === "published" && m.steps.length)
       add("LOW", wf, "no trigger", "published with no trigger: only reachable via Add to Workflow from somewhere else");
+    } catch (e){
+      ctxStep = null;
+      add("HIGH", m.name, "detector failed",
+          `the checks for this workflow threw (${e && e.message}) and were cut short, so the findings for it are incomplete. Open it by hand. Everything else in this report is complete`);
+    }
   }
   ctxWf = null; ctxStep = null;
 
@@ -520,7 +526,8 @@ function detect(models, fieldKeys, accountTags, rules){
           `check that nothing moves the same opportunity between them, because it stays the SAME opportunity`);
   }
 
-  const vocab = [...new Set(models.flatMap(m => [...m.tagsAdded, ...m.tagsTrigger]))].sort();
+  const vocab = [...new Set(models.flatMap(m => [...m.tagsAdded, ...m.tagsTrigger]))]
+    .filter(t => typeof t === "string").sort();
   for (const a of vocab) for (const b of vocab)
     if (a !== b && b.includes(a))
       add("HIGH", "(account)", "contains collision",

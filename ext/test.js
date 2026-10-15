@@ -269,3 +269,18 @@ assert.ok(md.includes(`**${findings.length} findings**`));
 
 console.log(`ok  -  ${findings.length} findings, ${edges.length} edges on the fixture`);
 
+
+// --- non-string tags must not abort the audit --------------------------------
+{
+  const m = extract({ id:"O", name:"Odd tags", status:"published" },
+    { workflowData:{ templates:[
+      { id:"o1", type:"add_contact_tag", next:null, attributes:{ tags:[{ x:1 }, 7, "legacy-a"] } } ] } },
+    [], null, {});
+  assert.deepStrictEqual([...m.tagsAdded], ["legacy-a"], "only string tags are collected");
+  const fs = detect([m], new Set(), new Set(["x"]), { deprecatedTagPrefixes:["legacy"], routingTagPrefixes:["route"] });
+  assert.ok(has(fs, "deprecated tag family"), "string tag still checked");
+  // a model that still makes a detector throw must yield a finding, not an exception
+  m.tagsAdded.add({ x:1 });
+  const fs2 = detect([m], new Set(), new Set(["x"]), { deprecatedTagPrefixes:["legacy"] });
+  assert.ok(has(fs2, "detector failed"), "a throwing detector pass must become a finding");
+}
