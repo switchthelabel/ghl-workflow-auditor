@@ -169,6 +169,24 @@ const only = (name, templates, triggers = [], counts = [], status = "published")
   assert.ok(!hit.msg.includes("Draft C"), "a draft is not competing with anything yet");
 }
 
+// --- two distinct duplicate-trigger groups must both surface ----------------
+// Both are `(account)` findings with the same rule, so a dedupe key of
+// `wf|rule` would keep only the first and the second group's workflows would
+// never be named.
+{
+  const trA = [{ type: "contact_tag", conditions: [{ field: "contact.tags", operator: "is", value: ["hot"] }] }];
+  const trB = [{ type: "contact_tag", conditions: [{ field: "contact.tags", operator: "is", value: ["cold"] }] }];
+  const f = detect([only("Router A", [], trA), only("Router B", [], trA),
+                    only("Router C", [], trB), only("Router D", [], trB)],
+    new Set(), new Set());
+  const hits = f.filter(x => x.rule === "duplicate trigger");
+  assert.strictEqual(hits.length, 2, "two distinct trigger groups must produce two findings");
+  assert.ok(hits.some(x => x.msg.includes("Router A") && x.msg.includes("Router B")),
+    "each group must name its own workflows");
+  assert.ok(hits.some(x => x.msg.includes("Router C") && x.msg.includes("Router D")),
+    "the second group must not be swallowed by the first");
+}
+
 // --- impact: the same finding in a live workflow outranks one in a draft ----
 {
   const mk = (name, status, counts) =>

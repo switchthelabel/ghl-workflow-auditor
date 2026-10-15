@@ -528,7 +528,12 @@ function detect(models, fieldKeys, accountTags, rules){
 
   const seen = new Map();
   for (const f of out){
-    const k = f.wf + "|" + f.rule;
+    // Account-level findings share the key `(account)|<rule>`, so two distinct
+    // groups (e.g. two different duplicate-trigger collisions) would collapse
+    // into one and the second would never name its workflows. The message is
+    // what makes them distinct: fold it into the key only for `(account)`.
+    const k = f.wf === "(account)" ? f.wf + "|" + f.rule + "|" + f.msg
+                                    : f.wf + "|" + f.rule;
     if (seen.has(k)) seen.get(k).n++; else seen.set(k, { ...f, n: 1 });
   }
 
