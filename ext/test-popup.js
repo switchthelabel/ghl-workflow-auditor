@@ -16,6 +16,7 @@ async function check(prog, result, visible, button) {
       storage: { session: { get: async () => ({ prog, result }), onChanged: { addListener() {} } } }
     }
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'core.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'popup.js'), 'utf8'), context);
   await new Promise(setImmediate);
   assert.equal(messages.length, 0, 'opening the popup must not start an audit');

@@ -111,20 +111,6 @@ function render(b){
 }
 
 // ---------- actions ----------
-function download(text, name, mime){
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
-  a.download = name;
-  a.click();
-}
-
-async function copy(text, btn){
-  const was = btn.textContent;
-  try { await navigator.clipboard.writeText(text); btn.textContent = "copied"; }
-  catch { btn.textContent = "press ctrl+c"; }
-  setTimeout(() => { btn.textContent = was; }, 1500);
-}
-
 $("#dlmd").onclick   = () => download(RESULT.report, `audit-${stamp()}.md`, "text/markdown");
 $("#dljson").onclick = () => download(JSON.stringify(RESULT.bundle, null, 1), `workflows-${stamp()}.json`, "application/json");
 // Straight to the clipboard beats download, open the folder, drag it in.

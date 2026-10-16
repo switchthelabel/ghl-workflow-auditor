@@ -1,25 +1,16 @@
 // Audit core: model, detectors, graph, bundle, markdown.
-// No DOM, no chrome.* — so `node test.js` can require it straight.
-// Everything that talks to the browser or to GHL lives in panel.js.
+// No chrome.*; the only DOM code is the two view helpers at the bottom
+// (download/copy), which node never calls — so `node test.js` can require it
+// straight. Everything that talks to the browser or to GHL lives in the worker.
 
 const SHAPE_VERSION = "2026-09-11";
 
 const URL_RE = /https?:\/\/[^\s"'<>)]+/g;
 const MERGE_RE = /\{\{\s*([a-z_]+\.[a-z_0-9.]+)\s*\}\}/gi;
+// The location id off a GHL sub-account URL, in either of its two shapes.
+const LOC_RE = /\/location\/([A-Za-z0-9]{15,})|[?&]locationId=([A-Za-z0-9]{15,})/;
 
 const esc = s => String(s).replace(/\|/g, "\\|");
-
-// Plan B, for when the token cannot be read off the page: pull the token and the
-// location id out of a whole "Copy as cURL" pasted as-is. The workflow id in the
-// path is NOT the location, so /workflow/{loc}/{wfId} is matched first and on
-// purpose: its first segment is the one we want.
-function parseCurl(raw){
-  const s = String(raw);
-  const t = s.match(/eyJ[\w-]+\.eyJ[\w-]+\.[\w.-]+/);
-  const l = s.match(/\/workflow\/([A-Za-z0-9]{15,})/)
-         || s.match(/\/location\/([A-Za-z0-9]{15,})|[?&]locationId=([A-Za-z0-9]{15,})/);
-  return { tok: t ? t[0] : "", loc: (l && (l[1] || l[2])) || "" };
-}
 
 // GHL returns a SCALAR when a field holds one value and an ARRAY when it holds
 // several, for the same field on the same step type. `workflow_id` on a Remove
@@ -531,11 +522,21 @@ function detect(models, fieldKeys, accountTags, rules){
           `check that nothing moves the same opportunity between them, because it stays the SAME opportunity`);
   }
 
-  const vocab = [...new Set(models.flatMap(m => [...m.tagsAdded, ...m.tagsTrigger]))].sort();
-  for (const a of vocab) for (const b of vocab)
-    if (a !== b && b.includes(a))
-      add("HIGH", "(account)", "contains collision",
-          `\`${a}\` is a substring of \`${b}\`: a contains \`${a}\` filter matches both`);
+  // A tag that contains another as a SUBSTRING makes a `contains` filter match
+  // both. A tag that merely STARTS WITH another is almost always intentional
+  // naming ("lead" and "lead-hot"), so only non-prefix substrings are flagged.
+  // Sort by length so a shorter tag is only compared against longer ones.
+  const vocab = [...new Set(models.flatMap(m => [...m.tagsAdded, ...m.tagsTrigger]))]
+    .sort((a, b) => a.length - b.length);
+  for (let i = 0; i < vocab.length; i++){
+    const a = vocab[i];
+    for (let j = i + 1; j < vocab.length; j++){
+      const b = vocab[j];
+      if (b.includes(a) && !b.startsWith(a))
+        add("HIGH", "(account)", "contains collision",
+            `\`${a}\` is a substring of \`${b}\`: a contains \`${a}\` filter matches both`);
+    }
+  }
 
   const seen = new Map();
   for (const f of out){
@@ -717,6 +718,25 @@ function buildBundle(loc, models, findings, edges, rawFields, rawTags, host){
   };
 }
 
+// ---------- view helpers: the only DOM in this file ------------------------
+// Shared by popup.js and panel.js. Lives here so the two download/copy pairs
+// stay in sync; node never runs them.
+function download(text, name, mime){
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function copy(text, btn){
+  const was = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = "copied"; }
+  catch { btn.textContent = "could not copy"; }
+  setTimeout(() => { btn.textContent = was; }, 1500);
+}
+
 // What changed since the last audit of this account. GoHighLevel bumps a
 // workflow's `version` on every save, so drift is free to detect: no diffing of
 // step trees, just a number. Indexed by id, never by name — a rename is a
@@ -772,5 +792,5 @@ function toMarkdown(loc, models, findings, edges, diff){
 }
 
 if (typeof module !== "undefined") module.exports =
-  { SHAPE_VERSION, arr, inputs, parseCurl, fileStem, ghlLink, textOf, exits, walk, orderSteps, extract, brokenModel,
-    detect, graph, boundaries, buildBundle, toMarkdown, snapshotOf, diffSnapshots };
+  { SHAPE_VERSION, LOC_RE, arr, inputs, fileStem, ghlLink, textOf, exits, walk, orderSteps, extract, brokenModel,
+    detect, graph, boundaries, buildBundle, toMarkdown, snapshotOf, diffSnapshots, download, copy };

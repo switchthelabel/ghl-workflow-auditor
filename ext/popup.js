@@ -3,7 +3,6 @@
 
 const $ = s => document.querySelector(s);
 const h = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
-const LOC_RE = /\/location\/([A-Za-z0-9]{15,})|[?&]locationId=([A-Za-z0-9]{15,})/;
 
 // A run that has not written progress in this long is not coming back: the
 // service worker was killed. Better to offer a retry than to spin forever.
@@ -82,20 +81,6 @@ async function start(){
     return;
   }
   await chrome.runtime.sendMessage({ type: "start", tabId });
-}
-
-function download(text, name, mime){
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
-  a.download = name;
-  a.click();
-}
-
-async function copy(text, btn){
-  const was = btn.textContent;
-  try { await navigator.clipboard.writeText(text); btn.textContent = "copied"; }
-  catch { btn.textContent = "could not copy"; }
-  setTimeout(() => { btn.textContent = was; }, 1500);
 }
 
 const stamp = r => fileStem(r.title, r.loc);   // core.js
