@@ -6,7 +6,7 @@
 // the steps out of the traversal while the JSON dump claimed they were in
 // execution order.
 const assert = require("assert");
-const { walk, exits, extract, detect, boundaries, diffSnapshots } = require("./core.js");
+const { walk, exits, extract, detect, boundaries, diffSnapshots, buildBundle } = require("./core.js");
 
 const has = (fs, rule) => fs.some(f => f.rule === rule);
 const sevOf = (fs, rule) => (fs.find(f => f.rule === rule) || {}).sev;
@@ -367,6 +367,31 @@ const only = (name, templates, triggers = [], counts = [], status = "published")
   const noStage = only("NoStage", [step("o1", "internal_create_opportunity", null,
     { pipelineId: "P", __customInputFields__: [{ filterField: "name", value: "x" }] }, "Create")]);
   assert.strictEqual(sevOf(detect([noStage], new Set(), new Set()), "opportunity with no stage"), "MEDIUM");
+}
+
+// Same names must retain each workflow's identity and navigation link.
+{
+  const models = ["A", "B"].map(id => extract({ id, name: "New Workflow", status: "published" },
+    { workflowData: { templates: [step("s1", "sms", null, { body: "Hi" })] } }, [], [], {}));
+  const findings = detect(models, new Set(), new Set()).filter(f => f.rule === "no trigger");
+  assert.deepStrictEqual(findings.map(f => f.workflowId).sort(), ["A", "B"]);
+  assert.ok(findings.every(f => f.n === 1));
+  const bundle = buildBundle("location", models, findings, [], [], []);
+  assert.deepStrictEqual(bundle.findings.map(f => [f.workflowId, f.openInGhl]).sort(), [
+    ["A", "https://app.gohighlevel.com/v2/location/location/automation/workflows/A"],
+    ["B", "https://app.gohighlevel.com/v2/location/location/automation/workflows/B"],
+  ]);
+}
+
+// The same rule on different steps must retain both step identities.
+{
+  const model = only("Two steps", [
+    step("s1", "sms", "s2", { body: "Hi {{contact.first_name}}" }),
+    step("s2", "sms", null, { body: "Bye {{contact.first_name}}" }),
+  ]);
+  const findings = detect([model], new Set(), new Set()).filter(f => f.rule === "merge field with no gate");
+  assert.deepStrictEqual(findings.map(f => f.stepId).sort(), ["s1", "s2"]);
+  assert.ok(findings.every(f => f.n === 1));
 }
 
 console.log("ok  -  graph traversal, opportunities, assignment, impact, drift");
