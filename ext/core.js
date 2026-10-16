@@ -320,10 +320,10 @@ function detect(models, fieldKeys, accountTags, rules){
       const urls = (c.body.match(URL_RE) || []).filter(u => !u.includes("{{"));
       if (urls.length && !c.body.includes("trigger_link"))
         add("LOW", wf, "bare link", `URL with no trigger link in \`${c.node}\`: clicking it fires nothing`);
-      const bad = [...new Set([...c.body].filter(ch => ch.charCodeAt(0) > 127))];
+      const bad = [...new Set(c.body.match(/[\u2013\u2014\u2018-\u201f]/g) || [])];
       if (bad.length)
         add("MEDIUM", wf, "encoding in copy",
-            `\`${c.node}\` has non-ASCII characters (${bad.slice(0,6).join("")}): an em dash or a curly quote forces the whole message out of the GSM-7 alphabet, which halves the characters per segment and is mangled outright by some providers`);
+            `\`${c.node}\` has smart quotes or dashes (${bad.slice(0,6).join("")}): check provider compatibility; for SMS, these characters can require Unicode encoding and reduce the characters per segment`);
       ctxStep = null;
     }
     if (Array.isArray(m.counts) && m.counts.length){

@@ -144,6 +144,25 @@ assert.strictEqual(sevOf(findings, "contains collision"), "HIGH", "`qualified` l
 assert.strictEqual(sevOf(findings, "encoding in copy"), "MEDIUM", "the em dash breaks in the plugin");
 assert.strictEqual(sevOf(findings, "bare link"), "LOW", "a URL with no trigger link fires nothing");
 
+// Encoding warnings target smart punctuation, not the language of the copy.
+for (const type of ["sms", "email", "drip"]){
+  const encoding = body => {
+    const model = extract({ id: "copy", name: "Copy" },
+      { workflowData: { templates: [{ id: "send", type, attributes: { body } }] } }, [], [], {});
+    return detect([model], new Set(), new Set()).filter(f => f.rule === "encoding in copy");
+  };
+  for (const body of ["Plain 'quotes' and a hyphen -", "¡Hola! ¿Cómo estás? Mañana",
+    "Bonjour, café déjà prêt", "Grüße, schön für Straße", "你好 مرحبا Привет 😀"])
+    assert.deepStrictEqual(encoding(body), [], `${type}: ordinary multilingual copy must not be flagged`);
+  for (const punctuation of "–—‘’‚‛“”„‟"){
+    const fs = encoding(`Café ${punctuation}${punctuation}`);
+    assert.strictEqual(fs.length, 1);
+    assert.strictEqual(fs[0].sev, "MEDIUM");
+    assert.strictEqual(fs[0].stepId, "send");
+    assert.ok(fs[0].msg.includes(`(${punctuation})`), "show only the distinct smart punctuation");
+  }
+}
+
 // The MEDIUM path needs a tag that exists in the account and that no workflow writes.
 {
   const only = detect([wfB], new Set(), new Set(["qualified", "ghost-tag"]));
@@ -268,4 +287,3 @@ assert.ok(md.includes(`**${findings.length} findings**`));
 }
 
 console.log(`ok  -  ${findings.length} findings, ${edges.length} edges on the fixture`);
-
