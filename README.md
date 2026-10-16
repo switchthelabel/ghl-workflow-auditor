@@ -47,7 +47,7 @@ Install it unpacked (a Chrome Web Store listing is in review):
 
 That part matters: GoHighLevel only loads the session token once a workflow builder is open. From the dashboard, or a sub-account list, the extension has nothing to read and will tell you so.
 
-The audit starts on its own. **You can close the popup while it runs** — the work happens in the service worker. Reopen it and the progress is there.
+Click **Audit this account** to start. Opening the popup does not start an audit. **You can close the popup while it runs** — the work happens in the service worker. Reopen it and the progress is there.
 
 | Button | What you get |
 |---|---|
