@@ -364,6 +364,13 @@ const only = (name, templates, triggers = [], counts = [], status = "published")
   assert.strictEqual(sevOf(f, "contacts in flight"), "MEDIUM");
   assert.ok(f.find(x => x.rule === "contacts in flight").msg.includes("42"),
     "the count has to be the total across steps, not just the first one");
+  const healthy = only("Busy", [step("s1", "wait", null, { type: "time" })],
+    [{ type: "contact_tag", conditions: [{ field: "tag", value: "ready" }] }], [{ count: 42 }]);
+  assert.deepStrictEqual(detect([healthy], new Set(), new Set(["ready"])), [],
+    "active contacts alone must not produce a finding");
+  assert.deepStrictEqual(detect([busy, healthy], new Set(), new Set(["ready"]))
+    .filter(x => x.rule === "contacts in flight").map(x => [x.workflowId, x.n]), [["B", 1]],
+    "a finding on another workflow with the same name must not flag a healthy workflow");
   assert.ok(!has(detect([only("Quiet", [step("s1", "wait", null, {})])], new Set(), new Set()),
     "contacts in flight"), "an empty workflow is not busy");
 
