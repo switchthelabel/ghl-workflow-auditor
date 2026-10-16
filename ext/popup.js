@@ -8,8 +8,6 @@ const LOC_RE = /\/location\/([A-Za-z0-9]{15,})|[?&]locationId=([A-Za-z0-9]{15,})
 // service worker was killed. Better to offer a retry than to spin forever.
 const DEAD_MS = 60000;
 
-let TAB_LOC = "";
-
 const show = (sel, on) => $(sel).classList.toggle("hidden", !on);
 
 async function activeLoc(){
@@ -136,15 +134,5 @@ $("#cpjson").onclick = async e => copy(JSON.stringify((await grab()).bundle, nul
 $("#ver").textContent = "v" + chrome.runtime.getManifest().version;
 $("#opts").onclick = e => { e.preventDefault(); chrome.runtime.openOptionsPage(); };
 
-// ---------- open ----------
-(async () => {
-  TAB_LOC = (await activeLoc()).loc;
-  const { prog, result } = await chrome.storage.session.get(["prog", "result"]);
-  const fresh = result && result.loc === TAB_LOC;
-  const busy = prog && prog.status === "running" && Date.now() - prog.at <= DEAD_MS;
-
-  // You clicked the icon from a sub-account: that IS the instruction. Only skip
-  // the auto-run when there is something to look at already.
-  if (!busy && !fresh && TAB_LOC) return start();
-  await refresh();
-})();
+// Opening the popup only displays stored progress. Audits require a button click.
+refresh();
