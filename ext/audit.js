@@ -11,7 +11,6 @@ const GHL_HOSTS = [
   "https://*.gohighlevel.com/*",
   "https://*.msgsndr.com/*",
 ];
-const LOC_RE = /\/location\/([A-Za-z0-9]{15,})|[?&]locationId=([A-Za-z0-9]{15,})/;
 
 const decodeJwt = t => JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
 const minsLeft = t => Math.round((decodeJwt(t).exp * 1000 - Date.now()) / 60000);

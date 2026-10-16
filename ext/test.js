@@ -1,7 +1,7 @@
 // node test.js  -- run it before touching core.js.
 // One synthetic account that trips the rules that have actually broken builds.
 const assert = require("assert");
-const { parseCurl, orderSteps, walk, exits, extract, brokenModel, detect, graph, boundaries,
+const { orderSteps, walk, exits, extract, brokenModel, detect, graph, boundaries,
         toMarkdown, buildBundle, snapshotOf, diffSnapshots } = require("./core.js");
 
 const has = (fs, rule) => fs.some(f => f.rule === rule);
@@ -24,19 +24,6 @@ const sevOf = (fs, rule) => (fs.find(f => f.rule === rule) || {}).sev;
 {
   const ids = orderSteps([{ id: "x", next: "y" }, { id: "y", next: "x" }]).map(s => s.id);
   assert.strictEqual(ids.length, 2, "a next-pointer loop must not hang");
-}
-
-// --- 3. plan B: token and location out of a raw "Copy as cURL" -------------
-{
-  const curl = `curl --url ^"https://backend.leadconnectorhq.com/workflow/LOCATIONIDEXAMPLE001/abc?x=1^" `
-             + `-H ^"authorization: Bearer eyJhbG.eyJhdXRo.firma_x-1^"`;
-  const r = parseCurl(curl);
-  assert.strictEqual(r.loc, "LOCATIONIDEXAMPLE001", "the location is the FIRST segment, not the workflow id");
-  assert.strictEqual(r.tok, "eyJhbG.eyJhdXRo.firma_x-1");
-
-  const fromUrl = parseCurl("https://app.gohighlevel.com/v2/location/LOCATIONIDEXAMPLE002/automation");
-  assert.strictEqual(fromUrl.loc, "LOCATIONIDEXAMPLE002", "a plain /location/ URL must work too");
-  assert.strictEqual(parseCurl("").tok, "", "empty input must not throw");
 }
 
 // --- GHL sends a SCALAR for one value and an ARRAY for several ---------------
