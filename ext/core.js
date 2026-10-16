@@ -10,7 +10,7 @@ const MERGE_RE = /\{\{\s*([a-z_]+\.[a-z_0-9.]+)\s*\}\}/gi;
 // The location id off a GHL sub-account URL, in either of its two shapes.
 const LOC_RE = /\/location\/([A-Za-z0-9]{15,})|[?&]locationId=([A-Za-z0-9]{15,})/;
 
-const esc = s => String(s).replace(/\|/g, "\\|");
+const esc = s => String(s).replace(/\s+/g, " ").replace(/\|/g, "\\|");
 
 // GHL returns a SCALAR when a field holds one value and an ARRAY when it holds
 // several, for the same field on the same step type. `workflow_id` on a Remove

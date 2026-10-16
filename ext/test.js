@@ -216,6 +216,10 @@ const md = toMarkdown("locXYZ", models, findings, edges);
 assert.ok(md.includes("# Workflow audit - locXYZ"));
 assert.ok(md.includes("WF A: Qualifier"));
 assert.ok(md.includes(`**${findings.length} findings**`));
+{
+  const nl = toMarkdown("l", [{ ...models[0], name: "Multi\nLine | name" }], [], []);
+  assert.ok(nl.includes("| Multi Line \\| name |"), "newlines and pipes in names must not break table rows");
+}
 
 // --- workflow-level toggles: invisible on the canvas, silent when wrong ------
 {
