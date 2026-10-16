@@ -91,6 +91,13 @@ const sevOf = (fs, rule) => (fs.find(f => f.rule === rule) || {}).sev;
     "a skipped workflow must not generate 'empty workflow' or 'no trigger' noise on top");
 
   const b = buildBundle("loc", [bad, good], fs2, [], [], []);
+  for (const host of [undefined, "app.gohighlevel.com", "crm.example.com", "crm.example.com:8443"]){
+    const linked = buildBundle("loc", [bad, good], fs2, [], [], [], host);
+    const prefix = `https://${host || "app.gohighlevel.com"}/v2/location/loc/automation/workflows/`;
+    for (const w of linked.workflows) assert.strictEqual(w.openInGhl, prefix + w.id);
+    for (const f of linked.findings)
+      assert.strictEqual(f.openInGhl, f.workflowId ? prefix + f.workflowId : null);
+  }
   assert.strictEqual(b.workflows[0].parseError, bad.parseError, "the bundle must tell the agent it was skipped");
   assert.ok(!("parseError" in b.workflows[1]), "a workflow that parsed must not carry the flag");
 }

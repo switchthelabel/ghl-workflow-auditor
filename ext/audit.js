@@ -132,7 +132,7 @@ async function fetchWithRetry(url, tok){
 // ---------- the run ----------
 // `say(line, done, total)` is called on every step so a view can follow along.
 async function runAudit(session, say, rules, before){
-  const { tok, loc } = session;
+  const { tok, loc, host } = session;
 
   say("listing workflows...");
   // Confirmed 2026-09-11 against a live account. Note: it does NOT accept &limit (422).
@@ -212,7 +212,7 @@ async function runAudit(session, say, rules, before){
   const edges = graph(models);
   const snapshot = snapshotOf(models);
   const diff = diffSnapshots(before, snapshot);
-  const bundle = buildBundle(loc, models, findings, edges, rawFields, rawTags);
+  const bundle = buildBundle(loc, models, findings, edges, rawFields, rawTags, host);
   if (diff) bundle.changedSinceLastAudit = diff;
   return { report: toMarkdown(loc, models, findings, edges, diff), bundle, snapshot, diff };
 }
