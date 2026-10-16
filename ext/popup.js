@@ -2,6 +2,7 @@
 // closing this window mid-run costs nothing: reopen it and the progress is there.
 
 const $ = s => document.querySelector(s);
+const h = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 const LOC_RE = /\/location\/([A-Za-z0-9]{15,})|[?&]locationId=([A-Za-z0-9]{15,})/;
 
 // A run that has not written progress in this long is not coming back: the
@@ -25,7 +26,7 @@ function paint(prog, result){
   $("#dot").className = "dot" + ({ running:" run", done:" on", error:" bad" }[status] || "");
   if (prog && prog.title) $("#title").textContent = prog.title;
   if (prog && prog.loc)
-    $("#meta").innerHTML = `<code>${prog.loc}</code> &middot; session valid ${prog.tokenMins} min`;
+    $("#meta").innerHTML = `<code>${h(prog.loc)}</code> &middot; session valid ${h(prog.tokenMins)} min`;
 
   show("#running", status === "running");
   show("#err", status === "error");
