@@ -540,7 +540,7 @@ function detect(models, fieldKeys, accountTags, rules){
     // into one and the second would never name its workflows. The message is
     // what makes them distinct: fold it into the key only for `(account)`.
     const k = f.wf === "(account)" ? f.wf + "|" + f.rule + "|" + f.msg
-                                    : f.wf + "|" + f.rule;
+                                    : f.workflowId + "|" + (f.stepId || "") + "|" + f.rule;
     if (seen.has(k)) seen.get(k).n++; else seen.set(k, { ...f, n: 1 });
   }
 
