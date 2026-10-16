@@ -423,7 +423,9 @@ function detect(models, fieldKeys, accountTags, rules){
       // A webhook still pointing at a development machine.
       if (s.type === "webhook"){
         const u = String(a.url || "");
-        if (/localhost|127\.0\.0\.1|\.ngrok|:\d{4,5}\/|webhook\.site|requestbin|\/test\//i.test(u))
+        let host = "";
+        try { host = new URL(u).hostname; } catch {} // An invalid URL is not evidence of a dev endpoint.
+        if (/^(localhost|127\.0\.0\.1)$|(^|\.)(ngrok\.(io|com|app)|ngrok-free\.(app|dev)|webhook\.site|requestbin\.(com|net))\.?$/i.test(host))
           add("HIGH", wf, "webhook points at a test endpoint",
               `\`${s.name || "Webhook"}\` posts to \`${u.slice(0, 60)}\`: that looks like a development endpoint left in a live workflow`);
       }
