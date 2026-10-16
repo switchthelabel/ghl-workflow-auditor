@@ -7,7 +7,7 @@ const SHAPE_VERSION = "2026-09-11";
 const URL_RE = /https?:\/\/[^\s"'<>)]+/g;
 const MERGE_RE = /\{\{\s*([a-z_]+\.[a-z_0-9.]+)\s*\}\}/gi;
 
-const esc = s => String(s).replace(/\|/g, "\\|");
+const esc = s => String(s).replace(/\s+/g, " ").replace(/\|/g, "\\|");
 
 // Plan B, for when the token cannot be read off the page: pull the token and the
 // location id out of a whole "Copy as cURL" pasted as-is. The workflow id in the
