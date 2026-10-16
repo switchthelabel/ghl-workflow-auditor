@@ -26,10 +26,10 @@ function row(f){
   return `<tr>
     <td class="sev ${f.severity}">${f.severity}</td>
     <td class="live">${f.live ? "live" : "draft"}</td>
-    <td class="num">${f.contactsInWorkflow || ""}</td>
+    <td class="num">${h(f.contactsInWorkflow || "")}</td>
     <td>${where}</td>
     <td>${h(f.rule)}</td>
-    <td>${code(f.detail)}${f.occurrences > 1 ? ` <i>(x${f.occurrences})</i>` : ""}
+    <td>${code(f.detail)}${f.occurrences > 1 ? ` <i>(x${h(f.occurrences)})</i>` : ""}
         <button class="copy" data-copy="${h(f.severity + " - " + f.workflow + " - " + f.rule + ": " + f.detail)}">copy</button></td>
   </tr>`;
 }
@@ -39,7 +39,7 @@ function findingsTable(){
   if (!rows.length){
     const none = !RESULT.bundle.findings.length;
     return `<p class="empty">${none
-      ? "<b>Nothing found.</b> Every check passed on all " + RESULT.bundle.summary.workflows +
+      ? "<b>Nothing found.</b> Every check passed on all " + h(RESULT.bundle.summary.workflows) +
         " workflows. That is rarer than it sounds."
       : "No findings match these filters."}</p>`;
   }
@@ -71,12 +71,12 @@ function render(b){
   const sev = k => b.findings.filter(f => f.severity === k).length;
 
   $("#stats").innerHTML = `
-    <div><b>${s.workflows}</b>workflows</div><div><b>${s.published}</b>published</div>
-    <div><b>${s.steps}</b>steps</div>
+    <div><b>${h(s.workflows)}</b>workflows</div><div><b>${h(s.published)}</b>published</div>
+    <div><b>${h(s.steps)}</b>steps</div>
     <div><b class="${sev("HIGH") ? "HIGH" : ""}">${sev("HIGH")}</b>high</div>
     <div><b>${sev("MEDIUM")}</b>medium</div><div><b>${sev("LOW")}</b>low</div>
-    <div><b>${s.live ?? 0}</b>live</div><div><b>${s.edges}</b>edges</div>
-    ${s.notRead ? `<div><b style="color:var(--hi)">${s.notRead}</b>not read</div>` : ""}`;
+    <div><b>${h(s.live ?? 0)}</b>live</div><div><b>${h(s.edges)}</b>edges</div>
+    ${s.notRead ? `<div><b style="color:var(--hi)">${h(s.notRead)}</b>not read</div>` : ""}`;
 
   if (b.changedSinceLastAudit){
     const d = b.changedSinceLastAudit;
