@@ -56,6 +56,8 @@ function paint(prog, result){
     $("#sum").textContent = b.findings.length
       ? `${b.summary.live ?? 0} of ${b.findings.length} are in published workflows`
       : `nothing found across ${b.summary.workflows} workflows`;
+    if (b.summary.notRead)
+      $("#sum").textContent += ` — ${b.summary.notRead} workflow${b.summary.notRead === 1 ? "" : "s"} could not be read`;
     $("#sum").className = "sum" + (b.findings.length ? "" : " clean");
 
     const d = b.changedSinceLastAudit;

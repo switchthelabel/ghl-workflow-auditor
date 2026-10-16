@@ -100,8 +100,33 @@ async function api(url, tok){
     "authorization": "Bearer " + tok,
     "channel": "APP", "source": "WEB_USER", "version": "2021-07-28",
   }});
-  if (!r.ok) throw new Error("HTTP " + r.status + " on " + url.split("?")[0].split("/").slice(-1));
+  if (!r.ok){
+    const e = new Error("HTTP " + r.status + " on " + url.split("?")[0].split("/").slice(-1));
+    e.status = r.status;
+    throw e;
+  }
   return r.json();
+}
+
+// One workflow fetch, with a retry policy for the two ways a mid-run call dies.
+// A 401/403 means the token died or the account is off-limits: fail FAST, do not
+// retry (a dead token stays dead). A 429 is throttling: back off and retry.
+// Anything else (network, 5xx) is recorded once. Returns {value, error} so a
+// failure can be COUNTED and surfaced instead of swallowed into an empty model.
+async function fetchWithRetry(url, tok){
+  let delay = 1000;
+  for (let attempt = 0; ; attempt++){
+    try { return { value: await api(url, tok), error: null }; }
+    catch (e){
+      if (e && (e.status === 401 || e.status === 403)) return { value: null, error: e };
+      if (e && e.status === 429 && attempt < 3){
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2;
+        continue;
+      }
+      return { value: null, error: e };
+    }
+  }
 }
 
 // ---------- the run ----------
@@ -162,17 +187,25 @@ async function runAudit(session, say, rules, before){
   for (let i = 0; i < entries.length; i++){
     const w = entries[i];
     const [detail, triggers, counts] = await Promise.all([
-      api(`${B}/workflow/${loc}/${w.id}?includeScheduledPauseInfo=true`, tok).catch(() => null),
-      api(`${B}/workflow/${loc}/trigger?workflowId=${w.id}`, tok).catch(() => []),
-      api(`${B}/workflows/status/search/count-per-step?workflowId=${w.id}&locationId=${loc}`, tok).catch(() => []),
+      fetchWithRetry(`${B}/workflow/${loc}/${w.id}?includeScheduledPauseInfo=true`, tok),
+      fetchWithRetry(`${B}/workflow/${loc}/trigger?workflowId=${w.id}`, tok),
+      fetchWithRetry(`${B}/workflows/status/search/count-per-step?workflowId=${w.id}&locationId=${loc}`, tok),
     ]);
+    const failed = [detail, triggers, counts].filter(r => r && r.error);
     // A shape we have never seen costs us THAT workflow, not the audit. It comes
     // back as a HIGH finding, so it is impossible to miss in the report.
     let model;
-    try { model = extract(w, detail, triggers, counts, fieldById, (rules||{}).funnelIdPattern); }
+    try { model = extract(w, detail.value, triggers.value, counts.value, fieldById, (rules||{}).funnelIdPattern); }
     catch (e) { model = brokenModel(w, e); }
+    // A fetch that failed must not masquerade as an empty workflow. Count the
+    // failures and mark the workflow unread, so the report shouts instead of
+    // emitting false "empty workflow" / "no trigger" findings on top.
+    if (failed.length && !model.parseError)
+      model.fetchError = failed.length === 1
+        ? failed[0].error.message
+        : `${failed.length} of 3 fetches failed: ${failed.map(r => r.error.message).join(", ")}`;
     models.push(model);
-    say(`  ${w.name}${model.parseError ? "   [could not parse: skipped]" : ""}`, i + 1, entries.length);
+    say(`  ${w.name}${model.parseError ? "   [could not parse: skipped]" : model.fetchError ? "   [could not read: skipped]" : ""}`, i + 1, entries.length);
   }
 
   const findings = detect(models, fieldKeys, accountTags, rules);
