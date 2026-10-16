@@ -122,6 +122,18 @@ const settle = async (store, ms = 4000) => {
     assert.ok(!store.result, "a failed run must not leave a stale result behind");
   }
 
+  // Report links must retain the host captured from a white-label tab.
+  {
+    const { store, send } = harness({ tabUrl: `https://crm.example.com/v2/location/${LOC}/automation`, poisonId: "w1" });
+    send({ type: "start", tabId: 7 });
+    assert.strictEqual((await settle(store)).status, "done");
+    const bundle = store.result.bundle;
+    const link = `https://crm.example.com/v2/location/${LOC}/automation/workflows/w1`;
+    assert.strictEqual(bundle.workflows[0].openInGhl, link);
+    assert.ok(bundle.findings.length > 0);
+    for (const f of bundle.findings) assert.strictEqual(f.openInGhl, link);
+  }
+
   // --- a tab outside a sub-account has no location: say so -----------------
   {
     const { store, send } = harness({ tabUrl: "https://app.gohighlevel.com/v2/dashboard" });
@@ -276,5 +288,5 @@ const settle = async (store, ms = 4000) => {
     assert.strictEqual(detailCalls.length, 4, "a 429 must be retried with backoff, not given up on at once");
   }
 
-  console.log("ok  -  service worker flow: 11 scenarios");
+  console.log("ok  -  service worker flow: 12 scenarios");
 })().catch(e => { console.error("FAIL  " + e.message); process.exit(1); });

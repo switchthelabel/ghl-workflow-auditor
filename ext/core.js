@@ -595,8 +595,8 @@ function graph(models){
 }
 
 // A finding you can click beats a finding you have to go hunt for by name.
-const ghlLink = (loc, wfId) =>
-  `https://app.gohighlevel.com/v2/location/${loc}/automation/workflows/${wfId}`;
+const ghlLink = (loc, wfId, host = "app.gohighlevel.com") =>
+  `https://${host}/v2/location/${loc}/automation/workflows/${wfId}`;
 
 // `audit-Acme-Co-2026-09-11.md` explains itself in a ticket. The location id
 // does not. Falls back to the id when there is no readable account name.
@@ -608,7 +608,7 @@ function fileStem(title, loc){
 }
 
 // ---------- full data bundle, meant to be handed to an AI coding agent ----------
-function buildBundle(loc, models, findings, edges, rawFields, rawTags){
+function buildBundle(loc, models, findings, edges, rawFields, rawTags, host){
   return {
     _readme: [
       "Full GoHighLevel sub-account workflow dump, produced by the GHL Audit Chrome extension.",
@@ -677,7 +677,7 @@ function buildBundle(loc, models, findings, edges, rawFields, rawTags){
     findings: findings.map(f => ({ severity: f.sev, workflow: f.wf, workflowId: f.workflowId || null,
                                    stepId: f.stepId || null, rule: f.rule, detail: f.msg, occurrences: f.n,
                                    live: !!f.live, contactsInWorkflow: f.contacts || 0,
-                                   openInGhl: f.workflowId ? ghlLink(loc, f.workflowId) : null })),
+                                   openInGhl: f.workflowId ? ghlLink(loc, f.workflowId, host) : null })),
     graph: edges,
     // Where the chain leaves the workflows: tags a trigger waits for that no
     // workflow writes. Something outside does it, and this file cannot see it.
@@ -687,7 +687,7 @@ function buildBundle(loc, models, findings, edges, rawFields, rawTags){
                stages: [...new Set(models.flatMap(m => [...(m.stages || [])]))] },
     workflows: models.map(m => ({
       id: m.id, name: m.name, status: m.status, version: m.version,
-      openInGhl: ghlLink(loc, m.id),
+      openInGhl: ghlLink(loc, m.id, host),
       // Present only when the workflow could not be parsed. Everything below is
       // EMPTY in that case, which means "not read", never "nothing there".
       ...(m.parseError ? { parseError: m.parseError } : {}),
