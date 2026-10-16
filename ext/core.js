@@ -264,6 +264,7 @@ function detect(models, fieldKeys, accountTags, rules){
 
   for (const m of models){
     const wf = m.name;
+    const findingsBefore = out.length;
     ctxWf = m.id; ctxStep = null;
     if (m.parseError){
       add("HIGH", wf, "could not be parsed",
@@ -332,10 +333,6 @@ function detect(models, fieldKeys, accountTags, rules){
         add("MEDIUM", wf, "encoding in copy",
             `\`${c.node}\` has non-ASCII characters (${bad.slice(0,6).join("")}): an em dash or a curly quote forces the whole message out of the GSM-7 alphabet, which halves the characters per segment and is mangled outright by some providers`);
       ctxStep = null;
-    }
-    if (Array.isArray(m.counts) && m.counts.length){
-      const tot = m.counts.reduce((a,c) => a + (c.count||0), 0);
-      if (tot) add("MEDIUM", wf, "contacts in flight", `${tot} contact(s) sitting inside this workflow right now`);
     }
     // Appointment flows are reminders: they SHOULD keep firing after the lead replies.
     // Only nurture/outreach sequences are meant to stop.
@@ -484,6 +481,11 @@ function detect(models, fieldKeys, accountTags, rules){
       add("MEDIUM", wf, "empty workflow", "not a single step: a shell someone left half-built");
     if (!m.triggers.length && m.status === "published" && m.steps.length)
       add("LOW", wf, "no trigger", "published with no trigger: only reachable via Add to Workflow from somewhere else");
+    // Active contacts are context for a finding, not a problem by themselves.
+    if (out.length > findingsBefore && Array.isArray(m.counts) && m.counts.length){
+      const tot = m.counts.reduce((a,c) => a + (c.count||0), 0);
+      if (tot) add("MEDIUM", wf, "contacts in flight", `${tot} contact(s) sitting inside this workflow right now`);
+    }
   }
   ctxWf = null; ctxStep = null;
 

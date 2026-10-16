@@ -118,7 +118,7 @@ Everything here produces **no error message** in GoHighLevel. That's the selecti
 |---|---|
 | `outreach that never stops` | 3+ sends with **Stop on Response** off: you keep texting a lead who replied |
 | `appointment flow without re-entry` | **Allow Re-Entry** off drops anyone who reschedules — no more reminders |
-| `contacts in flight` | People sitting inside this workflow right now. Matters before you edit it |
+| `contacts in flight` | People sitting inside this workflow right now. Shown only alongside another finding on that workflow; matters before you edit it |
 | `empty workflow` | Not a single step. A shell someone left half-built |
 | `could not be parsed` | Shape couldn't be read, so it was skipped. Open that one by hand |
 
