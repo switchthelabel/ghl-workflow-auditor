@@ -222,10 +222,22 @@ const only = (name, templates, triggers = [], counts = [], status = "published")
 // --- a webhook left pointing at a dev machine ------------------------------
 {
   const hook = u => detect([only("Hook", [step("s1", "webhook", null, { url: u }, "Post")])], new Set(), new Set());
-  assert.strictEqual(sevOf(hook("https://abc123.ngrok.io/hook"), "webhook points at a test endpoint"), "HIGH");
-  assert.strictEqual(sevOf(hook("http://localhost:3000/hook"), "webhook points at a test endpoint"), "HIGH");
-  assert.ok(!has(hook("https://api.acme.com/leads"), "webhook points at a test endpoint"),
-    "a real endpoint is not a finding");
+  for (const url of [
+    "http://localhost:3000/hook", "http://127.0.0.1:8080/hook",
+    "https://abc123.ngrok.io/hook", "https://abc123.ngrok.app/hook",
+    "https://abc123.ngrok.com/hook", "https://abc123.ngrok-free.app/hook",
+    "https://abc123.ngrok-free.dev/hook", "https://WEBHOOK.SITE/id",
+    "https://webhook.site./id", "https://requestbin.com/id", "https://abc.requestbin.net/id",
+  ]) assert.strictEqual(sevOf(hook(url), "webhook points at a test endpoint"), "HIGH", url);
+  for (const url of [
+    "https://api.acme.com/leads", "https://api.acme.com:8443/leads",
+    "https://api.acme.com/test/leads", "https://api.acme.com/localhost/127.0.0.1",
+    "https://api.acme.com/?next=https://webhook.site/id",
+    "https://webhook.site@api.acme.com/leads", "https://webhook.site.acme.com/leads",
+    "https://notlocalhost.com/leads", "https://api.ngrok.acme.com/leads",
+    "https://requestbin.acme.com/leads", "https://myrequestbin.com/leads",
+    "", "not a URL",
+  ]) assert.ok(!has(hook(url), "webhook points at a test endpoint"), url);
 }
 
 // --- wait nodes: reply switches an AI agent off, 999 days is a dead end ----
